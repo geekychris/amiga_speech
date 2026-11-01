@@ -10,7 +10,7 @@ FLITE_CFLAGS = -O2 -g -w -Ithird_party/flite/include -Ithird_party/flite/lang/cm
 B = build
 
 CORE_SRCS = src/phoneme.c src/parse.c src/prosody.c src/klatt.c \
-            src/voice_classic.c src/voice_natural.c src/voicefile.c src/resample.c src/narrator.c
+            src/voice_classic.c src/voice_natural.c src/voicefile.c src/resample.c src/narrator.c src/spmath.c
 TR_SRCS   = src/translator.c src/normalize.c src/lexicon.c src/lts.c src/nrl.c
 FLITE_SRCS = $(wildcard third_party/flite/src/*.c)
 KAL_SRCS   = $(wildcard third_party/flite/lang/cmu_us_kal16/*.c)

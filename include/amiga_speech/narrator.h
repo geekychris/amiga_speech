@@ -127,6 +127,20 @@ typedef int (*nar_sink_fn)(void *user, const int16_t *samples, size_t count);
 int nar_speak(const nar_params *p, const char *phonemes, size_t len,
               nar_sink_fn sink, void *user, size_t *err_pos);
 
+/* Timing events for mouths and word/syllable sync (CMD_READ). Called
+   before the samples they refer to are delivered; sample_pos counts
+   samples delivered to the sink since the start of the call. */
+#define NAR_EV_WORD 0x01      /* first phoneme of a word */
+#define NAR_EV_SYL  0x02      /* syllable nucleus (vowel) */
+typedef void (*nar_event_fn)(void *user, uint32_t sample_pos, int phoneme, int flags);
+
+/* nar_speak with an event callback (ev may be NULL). Phoneme ids are the
+   narrator phonemes in table order; nar_phoneme_name() gives the code. */
+int nar_speak_ex(const nar_params *p, const char *phonemes, size_t len,
+                 nar_sink_fn sink, void *user, nar_event_fn ev, void *ev_user,
+                 size_t *err_pos);
+const char *nar_phoneme_name(int phoneme);   /* "" for silence */
+
 /* Natural voice data: an "AMSV" voice file image (DEVS:narrator/kal16.voice)
    read into memory by the caller. The buffer must be writable (it is
    byte-swapped in place on little-endian hosts) and stay valid until it is

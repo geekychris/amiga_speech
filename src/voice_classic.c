@@ -14,7 +14,7 @@
 
 #include "speech.h"
 #include "klatt.h"
-#include <math.h>
+#include "spmath.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -45,7 +45,7 @@ typedef struct {
 static float db(float d)
 {
     if (d <= 0.0f) return 0.0f;
-    return powf(10.0f, (d - 60.0f) / 20.0f);
+    return sp_exp10f((d - 60.0f) / 20.0f);
 }
 
 static float smooth01(float x)
@@ -418,9 +418,9 @@ int voice_classic_render(const sp_utt *u, const nar_params *p,
         cur.oq = female ? 0.7f : 0.62f;
         cur.tilt = female ? 0.3f : 0.15f;
         if (newi) {
-            cur.adj[0] = powf(10.0f, (float)p->A1adj / 20.0f);
-            cur.adj[1] = powf(10.0f, (float)p->A2adj / 20.0f);
-            cur.adj[2] = powf(10.0f, (float)p->A3adj / 20.0f);
+            cur.adj[0] = sp_exp10f((float)p->A1adj / 20.0f);
+            cur.adj[1] = sp_exp10f((float)p->A2adj / 20.0f);
+            cur.adj[2] = sp_exp10f((float)p->A3adj / 20.0f);
         } else {
             cur.adj[0] = cur.adj[1] = cur.adj[2] = 1.0f;
         }
@@ -443,7 +443,7 @@ int voice_classic_render(const sp_utt *u, const nar_params *p,
             else if (x < -23000.0f) x = -23000.0f + (x + 23000.0f) / (1.0f - (x + 23000.0f) / 9000.0f);
             if (x > 32767.0f) x = 32767.0f;
             if (x < -32768.0f) x = -32768.0f;
-            out[i] = (int16_t)lrintf(x);
+            out[i] = (int16_t)sp_lround(x);
         }
         if (sink(user, out, (size_t)n)) rc = 1;
         prev = cur;

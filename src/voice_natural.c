@@ -52,6 +52,16 @@ static int find_diphone(const cst_diphone_db *db, const char *key)
     return -1;
 }
 
+/* "a-b" or "a_-_b" (names cut to 10 chars, as Flite does) */
+static void dname(char *out, const char *a, const char *sep, const char *b)
+{
+    int n = 0, i;
+    for (i = 0; a[i] && i < 10; i++) out[n++] = a[i];
+    for (i = 0; sep[i]; i++) out[n++] = sep[i];
+    for (i = 0; b[i] && i < 10; i++) out[n++] = b[i];
+    out[n] = 0;
+}
+
 typedef struct {
     const char *name;
     float end;          /* seconds */
@@ -143,11 +153,11 @@ int voice_natural_render(const sp_utt *u, const nar_params *p,
             cst_item *un;
             s1 = item_next(s0);
             if (w->ph[k].cons && w->ph[k + 1].cons && w->ph[k].word == w->ph[k + 1].word) {
-                cst_sprintf(name, "%.10s_-_%.10s", item_name(s0), item_name(s1));
+                dname(name, item_name(s0), "_-_", item_name(s1));
                 e = find_diphone(db, name);
             }
             if (e < 0) {
-                cst_sprintf(name, "%.10s-%.10s", item_name(s0), item_name(s1));
+                dname(name, item_name(s0), "-", item_name(s1));
                 e = find_diphone(db, name);
             }
             if (e < 0) e = find_diphone(db, "pau-pau");
