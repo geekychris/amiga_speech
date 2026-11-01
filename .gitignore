@@ -1,0 +1,5 @@
+build/
+*.o
+*.d
+.DS_Store
+tools/narcap68k/narcap

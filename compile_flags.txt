@@ -1,0 +1,4 @@
+-Iinclude
+-Isrc
+-Ithird_party/flite/include
+-std=c99
