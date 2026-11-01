@@ -60,6 +60,15 @@ avail flush
 """
 
 
+def nudge_mouse(d):
+    import socket
+    try:
+        with socket.create_connection(("127.0.0.1", 2348), timeout=2) as c:
+            c.sendall(b"mouse_move %d 0\n" % d)
+    except OSError:
+        pass
+
+
 def run_job(bench, name, limit=400):
     """execute DH1:speech/jobs/<name>.job in the background, wait for JOBDONE"""
     log = "RAM:speech/%s.log" % name
@@ -67,8 +76,11 @@ def run_job(bench, name, limit=400):
     bench.script("run >NIL: execute %s/jobs/%s.job" % (P, name))
     t0 = time.time()
     out = ""
+    flip = 1
     while time.time() - t0 < limit:
         time.sleep(4)
+        nudge_mouse(flip)            # keep the screen blanker from starting
+        flip = -flip
         out = bench.script("type %s" % log)
         if "JOBDONE" in out:
             return out.replace("JOBDONE", "").rstrip(), True

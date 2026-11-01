@@ -9,6 +9,12 @@
 #include <string.h>
 
 #include "cst_val.h"
+
+/* Flite's cst_val layout depends on WORDS_BIGENDIAN (configure sets it);
+   without it, lists are corrupted on big-endian CPUs (found on PPC). */
+#if defined(__BIG_ENDIAN__) && !defined(WORDS_BIGENDIAN)
+#error "define WORDS_BIGENDIAN when building for a big-endian CPU"
+#endif
 #include "cst_lts.h"
 
 extern const char *const cmu_lts_phone_table[];

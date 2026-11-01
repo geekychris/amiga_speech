@@ -202,9 +202,21 @@ static const struct TagItem main_tags[] = {
 
 static const APTR interfaces[] = { (APTR)mgr_tags, (APTR)main_tags, NULL };
 
+
+/* Nothing zeroes .bss for a -nostartfiles binary we load ourselves (no C
+   start-up code), and statics such as Flite's "rules initialised" flags
+   must start at zero: clear it before anything else runs. */
+extern char __bss_start[], _end[];
+static void clear_bss(void)
+{
+    char *p = __bss_start;
+    while (p < _end) *p++ = 0;
+}
+
 static struct Library *lib_Init(struct Library *lib, BPTR seglist, struct ExecIFace *iexec)
 {
     struct TranslatorBase *b = (struct TranslatorBase *)lib;
+    clear_bss();
     IExec = iexec;
     ml_IExec = iexec;
     b->lib.lib_Node.ln_Type = NT_LIBRARY;

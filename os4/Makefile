@@ -12,7 +12,7 @@ COMMON = -mcrt=newlib -O2 -mcpu=powerpc -std=gnu99 -D__USE_INLINE__ -D__USE_OLD_
 # freestanding parts (device / library): no C runtime
 FCFLAGS = $(COMMON) $(XCFLAGS) -fno-builtin -ffunction-sections -fdata-sections -Wall -Wno-unused-parameter \
           -I$(TOP)/include -I$(TOP)/src -I$(TOP)/third_party/flite/include \
-          -DCST_NO_SOCKETS -DDIE_ON_ERROR -U__USE_INLINE__
+          -DCST_NO_SOCKETS -DDIE_ON_ERROR -DWORDS_BIGENDIAN=1 -U__USE_INLINE__
 FLDFLAGS = -mcrt=newlib -nostdlib -nostartfiles -Wl,--gc-sections
 
 CORE = phoneme parse prosody klatt voice_classic voice_natural voicefile resample narrator spmath

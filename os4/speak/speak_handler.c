@@ -163,6 +163,17 @@ static void bstr(BSTR b, char *out, int max)
     out[n] = 0;
 }
 
+
+/* Nothing zeroes .bss for a -nostartfiles binary we load ourselves (no C
+   start-up code), and statics such as Flite's "rules initialised" flags
+   must start at zero: clear it before anything else runs. */
+extern char __bss_start[], _end[];
+static void clear_bss(void)
+{
+    char *p = __bss_start;
+    while (p < _end) *p++ = 0;
+}
+
 int32 _start(STRPTR args, int32 len, struct ExecBase *sysbase)
 {
     struct Process *me;
@@ -171,6 +182,7 @@ int32 _start(STRPTR args, int32 len, struct ExecBase *sysbase)
     int opens = 0, running = 1;
     (void)args; (void)len;
 
+    clear_bss();
     IExec = (struct ExecIFace *)sysbase->MainInterface;
     ml_IExec = IExec;
     DOSBase = IExec->OpenLibrary("dos.library", 50);

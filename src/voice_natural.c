@@ -18,6 +18,12 @@
 #include <string.h>
 
 #include "cst_hrg.h"
+
+/* Flite's cst_val layout depends on WORDS_BIGENDIAN (configure sets it);
+   without it, lists are corrupted on big-endian CPUs (found on PPC). */
+#if defined(__BIG_ENDIAN__) && !defined(WORDS_BIGENDIAN)
+#error "define WORDS_BIGENDIAN when building for a big-endian CPU"
+#endif
 #include "cst_wave.h"
 #include "cst_units.h"
 #include "cst_sts.h"
