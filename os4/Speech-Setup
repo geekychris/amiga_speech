@@ -1,0 +1,12 @@
+.key DIR
+.def DIR "DH1:speech"
+; Speech-Setup: use amiga_speech from <DIR> until the next reboot.
+; Nothing is written to disk: assigns, the shell path and ENV: only.
+Assign SPEECH: "<DIR>"
+Assign LIBS: SPEECH: ADD
+Assign DEVS: SPEECH: ADD
+Path SPEECH: ADD
+SetEnv Narrator/DataDir SPEECH:
+UnSetEnv Narrator/Capture
+Avail FLUSH >NIL:
+Echo "Speech is ready. Try:  Say Hello, I am your Amiga."

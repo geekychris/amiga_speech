@@ -3,7 +3,7 @@
 //
 // Say for AmigaOS 4 (amiga_speech). Accepts the classic Say switches
 //   Say [-m] [-f] [-r] [-n] [-s<rate>] [-p<pitch>] [-x <file>] <text>
-// and keywords
+// and keywords (options are only recognised before the text)
 //   Say [TEXT] ... [FILE <f>] [RATE <n>] [PITCH <n>] [FEMALE] [MALE]
 //       [ROBOT] [NATURAL] [VOICE classic|natural] [PHONEMES] [VOLUME <n>]
 // Text is translated with translator.library and spoken by narrator.device.
@@ -39,6 +39,20 @@ static char *read_file(const char *name)
     return b;
 }
 
+static void usage(void)
+{
+    printf("Say [-m] [-f] [-r] [-n] [-s<rate>] [-p<pitch>] [-x <file>] <text>\n"
+           "    [FILE <f>] [RATE <n>] [PITCH <n>] [VOLUME <n>] [FEMALE] [MALE] [ROBOT]\n"
+           "    [NATURAL] [VOICE classic|natural] [PHONEMES]\n"
+           "Example: Say Hello, I am your Amiga.\n");
+}
+
+static void setup_hint(void)
+{
+    printf("Install narrator.device and translator.library (amiga_speech 50+), or for this\n"
+           "session run: Execute DH1:speech/Speech-Setup\n");
+}
+
 static int speak(struct narrator_rb *rb, const char *ph)
 {
     rb->message.io_Command = CMD_WRITE;
@@ -61,6 +75,17 @@ int main(int argc, char **argv)
     for (i = 1; i < argc; i++) {
         const char *a = argv[i];
         const char *v = i + 1 < argc ? argv[i + 1] : NULL;
+        /* options only before the text: once a word of text has been seen,
+           everything is text ("Say This is the natural voice." must not
+           take "natural" as the NATURAL keyword) */
+        if (text) {
+            size_t l = strlen(a);
+            text = realloc(text, tlen + l + 2);
+            text[tlen++] = ' ';
+            memcpy(text + tlen, a, l + 1);
+            tlen += l;
+            continue;
+        }
         if (!strcmp(a, "-m") || !strcasecmp(a, "MALE")) sex = MALE;
         else if (!strcmp(a, "-f") || !strcasecmp(a, "FEMALE")) sex = FEMALE;
         else if (!strcmp(a, "-r") || !strcasecmp(a, "ROBOT")) mode = ROBOTICF0;
@@ -73,11 +98,13 @@ int main(int argc, char **argv)
         else if (!strcasecmp(a, "VOLUME") && v) { volume = atoi(v); i++; }
         else if (!strcasecmp(a, "VOICE") && v) { classic = (v[0] == 'c' || v[0] == 'C'); i++; }
         else if (!strcasecmp(a, "PHONEMES")) phonemes = 1;
-        else if (!strcmp(a, "?")) {
-            printf("Say [-m] [-f] [-r] [-n] [-s<rate>] [-p<pitch>] [-x <file>] <text>\n"
-                   "    [FILE <f>] [RATE <n>] [PITCH <n>] [VOLUME <n>] [FEMALE] [MALE] [ROBOT]\n"
-                   "    [NATURAL] [VOICE classic|natural] [PHONEMES]\n");
+        else if (!strcmp(a, "?") || !strcmp(a, "-h") || !strcasecmp(a, "HELP")) {
+            usage();
             return 0;
+        } else if (a[0] == '-' && a[1] && !(a[1] >= '0' && a[1] <= '9')) {
+            printf("Say: unknown option %s\n", a);
+            usage();
+            return RETURN_WARN;
         } else {
             size_t l = strlen(a);
             text = realloc(text, tlen + l + 2);
@@ -92,7 +119,7 @@ int main(int argc, char **argv)
         if (!text) { PrintFault(IoErr(), file); return RETURN_FAIL; }
     }
     if (!text || !text[0]) {
-        printf("Say: nothing to say\n");
+        usage();
         return RETURN_WARN;
     }
 
@@ -102,7 +129,8 @@ int main(int argc, char **argv)
     if (!port || !rb) return RETURN_FAIL;
     rb->flags = NDF_NEWIORB;
     if (OpenDevice("narrator.device", classic ? 1 : 0, (struct IORequest *)rb, 0)) {
-        printf("Say: cannot open narrator.device (%ld)\n", (long)rb->message.io_Error);
+        printf("Say: cannot open narrator.device (error %ld)\n", (long)rb->message.io_Error);
+        setup_hint();
         return RETURN_FAIL;
     }
     rb->rate = rate;
@@ -118,7 +146,8 @@ int main(int argc, char **argv)
         ITranslator = TranslatorBase ? (struct TranslatorIFace *)
             GetInterface(TranslatorBase, "main", 1, NULL) : NULL;
         if (!ITranslator) {
-            printf("Say: cannot open translator.library 50\n");
+            printf("Say: cannot open translator.library version 50\n");
+            setup_hint();
             rc = -1;
         } else {
             static char out[4096];

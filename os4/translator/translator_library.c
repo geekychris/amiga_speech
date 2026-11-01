@@ -42,37 +42,49 @@ static struct SignalSemaphore g_sem;
 static uint8 *g_dict;
 static int g_dict_tried;
 
-static void load_dictionary(void)
+static int load_dictionary_from(const char *dir)
 {
     char path[260];
-    struct Task *me = IExec->FindTask(NULL);
     BPTR fh;
+    int i, ok = 0;
     int64 sz;
-    if (g_dict_tried) return;
-    if (me->tc_Node.ln_Type != NT_PROCESS) return;     /* DOS needs a process */
-    g_dict_tried = 1;
-    if (IDOS->GetVar("Narrator/DataDir", path, 200, 0) <= 0) path[0] = 0;
-    if (!path[0]) {
-        const char *d = "DEVS:narrator";
-        int i;
-        for (i = 0; d[i]; i++) path[i] = d[i];
-        path[i] = 0;
-    }
-    if (!IDOS->AddPart(path, "english.dict", sizeof path)) return;
+    for (i = 0; dir[i] && i < 200; i++) path[i] = dir[i];
+    path[i] = 0;
+    if (!IDOS->AddPart(path, "english.dict", sizeof path)) return 0;
     fh = IDOS->Open(path, MODE_OLDFILE);
-    if (!fh) return;
+    if (!fh) return 0;
     sz = IDOS->GetFileSize(fh);
     if (sz > 16 && sz < 16 * 1024 * 1024) {
         g_dict = IExec->AllocVecTags((uint32)sz, AVT_Type, MEMF_SHARED, TAG_END);
         if (g_dict && IDOS->Read(fh, g_dict, (int32)sz) == (int32)sz &&
             tr_set_dictionary(g_dict, (size_t)sz) == 0) {
-            /* ok */
+            ok = 1;
         } else if (g_dict) {
             IExec->FreeVec(g_dict);
             g_dict = NULL;
         }
     }
     IDOS->Close(fh);
+    return ok;
+}
+
+/* english.dict: ENV:Narrator/DataDir, then SPEECH:, DEVS:narrator, DEVS:, LIBS: */
+static void load_dictionary(void)
+{
+    static const char *const dirs[] = { "SPEECH:", "DEVS:narrator", "DEVS:", "LIBS:", NULL };
+    char dir[200];
+    struct Process *me = (struct Process *)IExec->FindTask(NULL);
+    APTR oldwin;
+    int i;
+    if (g_dict_tried) return;
+    if (me->pr_Task.tc_Node.ln_Type != NT_PROCESS) return;     /* DOS needs a process */
+    g_dict_tried = 1;
+    oldwin = me->pr_WindowPtr;
+    me->pr_WindowPtr = (APTR)-1;
+    if (!(IDOS->GetVar("Narrator/DataDir", dir, sizeof dir, 0) > 0 && load_dictionary_from(dir)))
+        for (i = 0; dirs[i]; i++)
+            if (load_dictionary_from(dirs[i])) break;
+    me->pr_WindowPtr = oldwin;
 }
 
 /* runs on the NewStackRun stack */
