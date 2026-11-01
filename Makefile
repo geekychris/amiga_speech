@@ -64,11 +64,15 @@ data/kal16.voice: $(B)/mkvoice
 data/english.dict: $(B)/mkdict third_party/cmudict/cmudict.dict
 	$(B)/mkdict third_party/cmudict/cmudict.dict $@
 
+$(B)/test_ml_printf: tests/test_ml_printf.c os4/common/ml_printf.c
+	$(CC) $(CFLAGS) -DML_PRINTF_PREFIX $^ -o $@
+
 $(B)/test_unit: tests/test_unit.c $(LIBS)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(LIBS) $(LDLIBS) -o $@
 
-test: all $(TESTS)
+test: all $(TESTS) $(B)/test_ml_printf
 	$(B)/test_unit
+	$(B)/test_ml_printf
 	sh tests/regress.sh
 
 samples: all

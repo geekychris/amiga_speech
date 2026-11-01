@@ -16,6 +16,7 @@
 import argparse, json, os, sys, time, urllib.request
 
 SKIP_VOICE = False
+PREFIX = "RAM:speech"          # where the programs/data are on the guest
 DEVICE = "narrator.device"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AMIGA_MCP = os.path.join(os.path.dirname(ROOT), "amiga_mcp")
@@ -56,18 +57,28 @@ class Bench:
         return r
 
 
-SETUP = """makedir RAM:speech
-setenv Narrator/DataDir RAM:speech
-setenv Narrator/Capture RAM:speech/cap.raw
-assign DEVS: RAM:speech ADD
-assign LIBS: RAM:speech ADD
-"""
-TEARDOWN = """unsetenv Narrator/DataDir
-unsetenv Narrator/Capture
-assign DEVS: RAM:speech REMOVE
-assign LIBS: RAM:speech REMOVE
-avail flush
-"""
+def setup_script():
+    return ("makedir RAM:speech\n"
+            "setenv Narrator/DataDir %s\n"
+            "setenv Narrator/Capture RAM:speech/cap.raw\n"
+            "assign DEVS: %s ADD\n"
+            "assign LIBS: %s ADD\n" % (PREFIX, PREFIX, PREFIX))
+
+
+def teardown_script():
+    return ("unsetenv Narrator/DataDir\n"
+            "unsetenv Narrator/Capture\n"
+            "assign DEVS: %s REMOVE\n"
+            "assign LIBS: %s REMOVE\n"
+            "avail flush\n" % (PREFIX, PREFIX))
+
+
+def crash_check(bench, step):
+    out = bench.script("status")
+    if "GrimReaper" in out:
+        print("!!! %s: Grim Reaper is running (a crash) - see the guest screen" % step)
+        return False
+    return True
 
 
 def files_to_push():
@@ -92,14 +103,19 @@ def main():
     ap.add_argument("--nopush", action="store_true")
     ap.add_argument("--novoice", action="store_true", help="kal16.voice is already in RAM:speech")
     ap.add_argument("--device", default="narrator.device")
+    ap.add_argument("--staged", action="store_true",
+                    help="use the files staged on DH1:speech by tools/stage_hdf.py")
     ap.add_argument("steps", nargs="*", default=["device"])
     a = ap.parse_args()
     from claude_busy import claude_testing
-    global SKIP_VOICE, DEVICE
+    global SKIP_VOICE, DEVICE, PREFIX
     SKIP_VOICE, DEVICE = a.novoice, a.device
+    if a.staged:
+        PREFIX = "DH1:speech"
+        a.nopush = True
     bench = Bench(a.url)
     with claude_testing(a.url + "/mcp", "speech tests (narrator.device)"):
-        print(bench.script(SETUP))
+        print(bench.script(setup_script()))
         if not a.nopush:
             for src, dst in files_to_push():
                 r = bench.push(src, dst)
@@ -108,9 +124,11 @@ def main():
             for step in a.steps:
                 mod = STEPS[step]
                 mod(bench)
+                if not crash_check(bench, step):
+                    break
         finally:
             if not a.keep:
-                print(bench.script(TEARDOWN))
+                print(bench.script(teardown_script()))
 
 
 def run_async(bench, cmd, log, limit=300, done_marker="JOBDONE"):
@@ -118,14 +136,18 @@ def run_async(bench, cmd, log, limit=300, done_marker="JOBDONE"):
     via a pushed script file with output to log; poll until JOBDONE.
     (The bridge turns ';' into line breaks, so the job goes in a file.)"""
     import tempfile
-    job = cmd.rstrip("\n") + "\necho JOBDONE\n"
+    lines = (cmd.rstrip("\n") + "\necho JOBDONE").split("\n")
+    # Run's redirection does not reach the commands of an executed script:
+    # redirect each line itself (unless it already redirects)
+    job = "".join(l + ("" if ">" in l or not l.strip() or l.startswith("stack") else " >>" + log) + "\n"
+                  for l in lines)
     fd, tmp = tempfile.mkstemp(suffix=".job")
-    os.write(fd, job.encode("latin-1"))
+    os.write(fd, job.replace("@P@", PREFIX).encode("latin-1"))
     os.close(fd)
     bench.push(tmp, "RAM:speech/job.txt")
     os.unlink(tmp)
     bench.script("delete %s QUIET" % log)
-    bench.script("run >%s execute RAM:speech/job.txt" % log)
+    bench.script("run >NIL: execute RAM:speech/job.txt")
     t0 = time.time()
     out = ""
     while time.time() - t0 < limit:
@@ -138,7 +160,7 @@ def run_async(bench, cmd, log, limit=300, done_marker="JOBDONE"):
 
 def step_device(bench):
     bench.script("delete RAM:speech/cap.raw QUIET")
-    out, ok = run_async(bench, "stack 200000\nRAM:speech/nartest DEVICE=%s" % DEVICE,
+    out, ok = run_async(bench, "stack 200000\n@P@/nartest DEVICE=%s" % DEVICE,
                         "RAM:speech/nt.log", limit=400)
     print(out)
     if not ok:
@@ -146,7 +168,7 @@ def step_device(bench):
 
 
 def step_translator(bench):
-    out, ok = run_async(bench, "RAM:speech/trtest", "RAM:speech/tr.log", limit=200)
+    out, ok = run_async(bench, "@P@/trtest", "RAM:speech/tr.log", limit=200)
     print(out)
 
 
@@ -159,18 +181,18 @@ def capture_say(bench, args, raw, timeout=200):
 
 
 def step_say(bench):
-    out = capture_say(bench, 'RAM:speech/Say "Hello, I am your Amiga. In 1985 it cost $1,295."',
+    out = capture_say(bench, '@P@/Say "Hello, I am your Amiga. In 1985 it cost $1,295."',
                       "RAM:speech/say1.raw")
     print(out)
     print(bench.script("list RAM:speech/say1.raw"))
-    out = capture_say(bench, 'RAM:speech/Say -f -s200 VOICE classic "This is the classic voice."',
+    out = capture_say(bench, '@P@/Say -f -s200 VOICE classic "This is the classic voice."',
                       "RAM:speech/say2.raw")
     print(out)
     print(bench.script("list RAM:speech/say2.raw"))
     # SPEAK: handler
     out, ok = run_async(bench, "delete RAM:speech/say3.raw QUIET\n"
                         "setenv Narrator/Capture RAM:speech/say3.raw\n"
-                        "echo \"Handler = RAM:speech/speak-handler\" >RAM:speech/SPEAK\n"
+                        "echo \"Handler = @P@/speak-handler\" >RAM:speech/SPEAK\n"
                         "echo \"StackSize = 65536\" >>RAM:speech/SPEAK\n"
                         "echo \"Priority = 5\" >>RAM:speech/SPEAK\n"
                         "echo \"GlobVec = -1\" >>RAM:speech/SPEAK\n"
@@ -191,7 +213,7 @@ def step_regress(bench):
         for voice in ("natural", "classic"):
             raw = "RAM:speech/r%02d%s.raw" % (i, voice[0])
             txt = s.replace('"', '')
-            capture_say(bench, 'RAM:speech/Say VOICE %s "%s"' % (voice, txt), raw)
+            capture_say(bench, '@P@/Say VOICE %s "%s"' % (voice, txt), raw)
             local = os.path.join(tmp, "r%02d%s.raw" % (i, voice[0]))
             bench.pull(raw, local)
             data = open(local, "rb").read()
@@ -209,13 +231,14 @@ def step_regress(bench):
 
 def step_say68k(bench):
     say68k = "/Applications/AmiKit.app/Contents/SharedSupport/prefix/drive_c/AmiKit/RabbitHole/InstalledOS/Utilities/Say"
-    print(bench.push(say68k, "RAM:speech/Say68k").get("message"))
-    print(bench.script("version RAM:speech/Say68k FULL"))
-    out = capture_say(bench, 'RAM:speech/Say68k "Hello, I am your Amiga. Do you remember me?"',
+    if PREFIX == "RAM:speech":
+        print(bench.push(say68k, "RAM:speech/Say68k").get("message"))
+    print(bench.script("version %s/Say68k FULL" % PREFIX))
+    out = capture_say(bench, '@P@/Say68k "Hello, I am your Amiga. Do you remember me?"',
                       "RAM:speech/say68.raw")
     print(out)
     print(bench.script("list RAM:speech/say68.raw"))
-    out = capture_say(bench, 'RAM:speech/Say68k -f -s200 "The sixty eight thousand Say command talks to the new device."',
+    out = capture_say(bench, '@P@/Say68k -f -s200 "The sixty eight thousand Say command talks to the new device."',
                       "RAM:speech/say68b.raw")
     print(bench.script("list RAM:speech/say68b.raw"))
 

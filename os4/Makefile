@@ -22,7 +22,7 @@ FLITE = cst_alloc cst_endian cst_features cst_ffeature cst_item cst_lpcres cst_r
 
 CORE_O  = $(CORE:%=$(B)/core_%.o)
 FLITE_O = $(FLITE:%=$(B)/fl_%.o)
-COMMON_O = $(B)/minilibc.o $(B)/flite_os4.o
+COMMON_O = $(B)/minilibc.o $(B)/ml_printf.o $(B)/flite_os4.o
 
 DEVFILE ?= narrator.device
 
@@ -69,7 +69,7 @@ $(B)/trtest: tests/trtest.c
 
 $(B)/speak_handler.o: speak/speak_handler.c
 	$(CC) $(FCFLAGS) -Iinclude -c $< -o $@
-$(B)/speak-handler: $(B)/speak_handler.o $(B)/minilibc.o
+$(B)/speak-handler: $(B)/speak_handler.o $(B)/minilibc.o $(B)/ml_printf.o
 	$(CC) $(FLDFLAGS) -o $@ $^ -lgcc
 
 $(B)/Say: say/say.c
