@@ -338,9 +338,13 @@ own API, not narrator-compatible).
 
 ## 6. Next steps (phase 2)
 
-1. **Voice data as files.** Write a converter from Flite's kal16 C arrays
-   to one big-endian `kal16.voice` file (index, LPC frames, residuals) and
-   load it with `AllocVecTags(MEMF_SHARED)`; drop the 4 MB of linked data.
+1. **Voice data as files.** Done: `tools/mkvoice` writes Flite's kal16
+   arrays as one big-endian `kal16.voice` file (3,964,996 bytes: diphone
+   index, LPC frames, residual offsets, µ-law residuals; format in
+   `src/voicefile.h`). The narrator core takes the file image through
+   `nar_set_voice_image()`; on PPC it is used in place, on little-endian
+   hosts it is byte-swapped once. The device will load it with
+   `AllocVecTags(MEMF_SHARED)` from `DEVS:narrator/kal16.voice`.
 2. **narrator.device skeleton** (PPC, unit 0): device task, request queue,
    `CMD_WRITE` → `nar_speak()` → AHI double-buffering, `AbortIO`,
    `CMD_FLUSH/RESET/STOP/START`, parameter checks from `nar_params_check()`.

@@ -14,30 +14,46 @@
 
 static unsigned char *g_dict_image;
 
-static int load_dictionary(const char *argv0)
+/* read <datadir>/name into memory (env AMIGA_SPEECH_DATA, ../data next to
+   the program, or ./data) */
+static unsigned char *load_data_file(const char *argv0, const char *name, long *size)
 {
     const char *env = getenv("AMIGA_SPEECH_DATA");
     char path[1024];
     FILE *f = NULL;
+    unsigned char *buf;
     long sz;
     if (env) {
-        snprintf(path, sizeof path, "%s/english.dict", env);
+        snprintf(path, sizeof path, "%s/%s", env, name);
         f = fopen(path, "rb");
     }
     if (!f) {
         const char *slash = strrchr(argv0, '/');
-        int dl = slash ? (int)(slash - argv0) : 1;
-        snprintf(path, sizeof path, "%.*s/../data/english.dict", dl, slash ? argv0 : ".");
+        if (slash) {
+            snprintf(path, sizeof path, "%.*s/../data/%s", (int)(slash - argv0), argv0, name);
+            f = fopen(path, "rb");
+        }
+    }
+    if (!f) {
+        snprintf(path, sizeof path, "data/%s", name);
         f = fopen(path, "rb");
     }
-    if (!f) f = fopen("data/english.dict", "rb");
-    if (!f) return -1;
+    if (!f) return NULL;
     fseek(f, 0, SEEK_END);
     sz = ftell(f);
     fseek(f, 0, SEEK_SET);
-    g_dict_image = (unsigned char *)malloc((size_t)sz);
-    if (!g_dict_image || fread(g_dict_image, 1, (size_t)sz, f) != (size_t)sz) { fclose(f); return -1; }
+    buf = (unsigned char *)malloc((size_t)sz);
+    if (!buf || fread(buf, 1, (size_t)sz, f) != (size_t)sz) { fclose(f); free(buf); return NULL; }
     fclose(f);
+    *size = sz;
+    return buf;
+}
+
+static int load_dictionary(const char *argv0)
+{
+    long sz = 0;
+    g_dict_image = load_data_file(argv0, "english.dict", &sz);
+    if (!g_dict_image) return -1;
     return tr_set_dictionary(g_dict_image, (size_t)sz);
 }
 

@@ -127,6 +127,14 @@ typedef int (*nar_sink_fn)(void *user, const int16_t *samples, size_t count);
 int nar_speak(const nar_params *p, const char *phonemes, size_t len,
               nar_sink_fn sink, void *user, size_t *err_pos);
 
+/* Natural voice data: an "AMSV" voice file image (DEVS:narrator/kal16.voice)
+   read into memory by the caller. The buffer must be writable (it is
+   byte-swapped in place on little-endian hosts) and stay valid until it is
+   replaced or NULL is passed. Returns 0, or -1 if the image is malformed.
+   Without a voice the natural voice falls back to the classic one. */
+int nar_set_voice_image(uint8_t *image, size_t size);
+int nar_have_natural(void);
+
 /* Check a phoneme string without synthesizing (returns 0 or ND_PhonErr). */
 int nar_check_phonemes(const char *phonemes, size_t len, size_t *err_pos);
 
