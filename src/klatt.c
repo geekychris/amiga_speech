@@ -6,6 +6,12 @@
 #include <string.h>
 
 #define PI_F 3.14159265f
+#ifndef KL_SHELF
+#define KL_SHELF 1.0f
+#endif
+#ifndef KL_PAR_GAIN
+#define KL_PAR_GAIN 4.0f
+#endif
 
 static float knoise(klatt *k)
 {
@@ -174,6 +180,12 @@ void kl_render(klatt *k, const kl_frame *prev, const kl_frame *fr,
             }
             par += ab * fn;
         }
-        out[i] = casc + par;
+        /* the parallel (frication/burst) branch is calibrated so sibilants
+           come out ~5-10 dB below the vowel peak, as in natural speech */
+        /* high shelf on the voiced path (+6 dB above ~3 kHz): a 6-formant
+           cascade is dull at 22 kHz compared with natural speech */
+        k->shelf_lp += 0.6f * (casc - k->shelf_lp);
+        casc += KL_SHELF * (casc - k->shelf_lp);
+        out[i] = casc + par * KL_PAR_GAIN;
     }
 }

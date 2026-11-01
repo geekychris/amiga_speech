@@ -16,9 +16,10 @@
 #include <math.h>
 #include <string.h>
 
-/* Durations below speak ~150 wpm on ordinary prose at RATE 150 (measured
-   with tests/rate_check; see docs/DESIGN.md). */
-#define RATE_CAL 1.00f
+/* Calibration so that RATE 150 speaks ~150 words per minute on ordinary
+   prose (measured on tests/data/sentences.txt #5; the V37 device runs
+   ~16% fast: 174 wpm at its default 150). */
+#define RATE_CAL 1.12f
 
 static int is_cons(int ph)
 {
@@ -110,8 +111,8 @@ static void durations(sp_utt *u, const nar_params *p)
         d = mn + (inh - mn) * prc / 100.0f;
         if (g->flags & SF_ASPIRATE) {
             /* aspiration: longer before stressed vowels */
-            float a = (nx && nx->stress) ? 50.0f : 30.0f;
-            if (nx && !ph_is_vowel(nx->ph)) a = 35.0f; /* "pl", "tr" */
+            float a = (nx && nx->stress) ? 65.0f : 40.0f;
+            if (nx && !ph_is_vowel(nx->ph)) a = 45.0f; /* "pl", "tr" */
             d += a;
             g->asp = (uint16_t)(a * scale + 0.5f);
         }

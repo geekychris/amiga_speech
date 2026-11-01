@@ -45,6 +45,7 @@ typedef struct {
     float shimmer;
     float noise_lp;
     float fric_prev;
+    float shelf_lp;            /* cascade high-shelf state */
     int   voicing;             /* currently inside a voiced stretch */
     uint32_t rng;
 } klatt;

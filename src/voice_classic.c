@@ -20,6 +20,9 @@
 
 #define FRAME_MS 2.0f
 #define OUT_GAIN 5200.0f
+/* formant bandwidth scale: wider than the textbook values sounds less
+   "ringing" and measured more intelligible (tests/intelligibility.py) */
+#define BW_SCALE 1.4f
 
 typedef struct {
     float T[3], E[3], B[3];     /* formant targets (start/end), bandwidths */
@@ -62,7 +65,7 @@ static int burst_ms(int ph)
     switch (ph) {
     case PH_P: case PH_B: return 7;
     case PH_T: case PH_D: return 11;
-    case PH_K: case PH_G: return 20;
+    case PH_K: case PH_G: return 24;
     default: return 0;
     }
 }
@@ -74,7 +77,7 @@ static void dom_params(int ph, float k[3], float *ext, float *in)
     int f = ph_table[ph].flags;
     if (f & PF_STOP) {
         k[0] = 0.25f; k[1] = 0.45f; k[2] = 0.4f; *ext = 50.0f; *in = 0.0f;
-        if (ph == PH_K || ph == PH_G) { k[1] = 0.85f; k[2] = 0.6f; }
+        if (ph == PH_K || ph == PH_G) { k[1] = 0.6f; k[2] = 0.55f; } /* velar pinch */
     } else if (f & PF_FRIC) {
         k[0] = 0.3f; k[1] = 0.5f; k[2] = 0.5f; *ext = 40.0f; *in = 15.0f;
     } else if (f & PF_NASAL) {
@@ -181,7 +184,7 @@ static void build_tracks(const sp_utt *u, const nar_params *p, classic_work *w)
         s->R = t0 + d;
         s->cl_end = s->burst_end = t0 + d;
         if (ph_table[g->ph].flags & PF_AFFR) {
-            s->cl_end = t0 + d * 0.4f;
+            s->cl_end = t0 + d * 0.5f;
             s->burst_end = t0 + d;
         } else if (g->ph == PH_DX) {
             s->cl_end = s->burst_end = t0 + d;
@@ -311,6 +314,8 @@ static void source_at(const sp_utt *u, const classic_work *w, const nar_params *
         } else if (t < s->burst_end || (pi->flags & PF_AFFR)) {
             af = tg->af;
             use_par = 1;
+            /* affricates start with a release transient */
+            if ((pi->flags & PF_AFFR) && t < s->cl_end + 10.0f) af += 6.0f;
             if (pi->flags & PF_VOICED) av = tg->av + 6;
         } else {
             /* aspiration */
@@ -324,7 +329,7 @@ static void source_at(const sp_utt *u, const classic_work *w, const nar_params *
         if (pi->flags & PF_FRIC) { af = tg->af; use_par = 1; }
         if (ph_is_vowel(g->ph)) {
             av += g->stress ? 1.0f : -1.5f;
-            ah = av - 22.0f + 5.0f * female;   /* a little breath */
+            ah = av - 16.0f + 4.0f * female;   /* a little breath */
             /* phrase-final decay, more breathy */
             if ((g->flags & SF_FINALSYL) && i + 1 < u->nseg) {
                 float x = (t - (float)g->t0) / (float)(g->dur ? g->dur : 1);
@@ -403,14 +408,14 @@ int voice_classic_render(const sp_utt *u, const nar_params *p,
         memset(&cur, 0, sizeof cur);
         formants_at(u, w, seg_f, t, f, bw);
         cur.f[0] = f[0]; cur.f[1] = f[1]; cur.f[2] = f[2];
-        cur.b[0] = bw[0]; cur.b[1] = bw[1]; cur.b[2] = bw[2];
+        cur.b[0] = bw[0] * BW_SCALE; cur.b[1] = bw[1] * BW_SCALE; cur.b[2] = bw[2] * BW_SCALE;
         cur.f[3] = 3300.0f * (1.0f + 0.12f * female); cur.b[3] = 250.0f;
         cur.f[4] = 3750.0f * (1.0f + 0.12f * female); cur.b[4] = 200.0f;
         source_at(u, w, p, seg_a, t, &cur);
         /* cascade F6 (source_at chose the parallel F6 for this sound) */
         cur.f[5] = cur.f[5] > 0 ? cur.f[5] : 4900.0f;
         cur.f0 = f0_at(u, t);
-        cur.oq = female ? 0.62f : 0.5f;
+        cur.oq = female ? 0.7f : 0.62f;
         cur.tilt = female ? 0.3f : 0.15f;
         if (newi) {
             cur.adj[0] = powf(10.0f, (float)p->A1adj / 20.0f);

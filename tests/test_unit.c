@@ -8,6 +8,9 @@
 #include "amiga_speech/narrator.h"
 #include "amiga_speech/translator.h"
 #include "../src/normalize.h"
+#if defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wunused-function"
+#endif
 #include "../cli/common.h"
 #include "../cli/wavout.h"
 #include <math.h>
@@ -209,18 +212,14 @@ static double rms(const pcmbuf *b)
     return b->n ? sqrt(s / (double)b->n) : 0;
 }
 
-/* F0 of the loudest 100 ms by autocorrelation */
+/* F0 of the middle 100 ms (inside the sustained vowel) by autocorrelation */
 static double f0_of(const pcmbuf *b)
 {
-    size_t win = NAR_OUTPUT_RATE / 10, best = 0, i;
-    double be = -1, bestr = 0;
+    size_t win = NAR_OUTPUT_RATE / 10, best;
+    double bestr = 0;
     int lag, bestlag = 0;
-    for (i = 0; i + win < b->n; i += win / 2) {
-        double e = 0;
-        size_t j;
-        for (j = 0; j < win; j++) e += (double)b->s[i + j] * b->s[i + j];
-        if (e > be) { be = e; best = i; }
-    }
+    if (b->n < win * 2) return 0;
+    best = b->n / 2 - win / 2;
     for (lag = NAR_OUTPUT_RATE / 400; lag < NAR_OUTPUT_RATE / 50; lag++) {
         double r = 0;
         size_t j;

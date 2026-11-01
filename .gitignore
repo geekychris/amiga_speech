@@ -3,3 +3,4 @@ build/
 *.d
 .DS_Store
 tools/narcap68k/narcap
+build-ppc/
