@@ -59,6 +59,13 @@ def main():
             xdf("delete", "speech/" + name, check=False)
             xdf("write", local, "speech/" + name)
             print("wrote", name, os.path.getsize(local))
+        jobs = os.path.join(ROOT, "os4", "build", "jobs")
+        if os.path.isdir(jobs):
+            if "jobs" not in xdf("list", "speech", check=False):
+                xdf("makedir", "speech/jobs")
+            for f in sorted(os.listdir(jobs)):
+                xdf("delete", "speech/jobs/" + f, check=False)
+                xdf("write", os.path.join(jobs, f), "speech/jobs/" + f)
         print(xdf("list", "speech"))
         print("start:", post("/api/emulator/start"))
         for i in range(60):
