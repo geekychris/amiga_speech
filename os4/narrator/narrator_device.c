@@ -365,10 +365,14 @@ static void play_drain(speaker *s, int abort)
 static int speak_sink(void *user, const int16_t *smp, size_t n)
 {
     speaker *s = (speaker *)user;
-    if (!s->pri_set) {
-        /* the classic device raised its priority once speech starts */
+    if (!s->pri_set && !s->capture) {
+        /* The classic device raised its priority (to `priority`, default
+           100) once speech started. We synthesize ahead into AHI buffers,
+           so a high priority only starves other tasks while the next
+           sentence is computed: honour lower values, cap at 1. In capture
+           mode (no real-time output) the priority is left alone. */
         int8 pri = (s->rb->flags & NDF_NEWIORB) ? s->rb->priority : DEFPRIORITY;
-        if (pri > 20) pri = 20;           /* see DESIGN.md: capped */
+        if (pri > 1) pri = 1;
         s->old_pri = IExec->SetTaskPri(g_task, pri);
         s->pri_set = 1;
     }

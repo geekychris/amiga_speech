@@ -41,7 +41,8 @@ formant voice. ENV variables (all optional):
 | `Narrator/Capture` | append the speech as 16-bit big-endian mono PCM at 22050 Hz to this file instead of playing it (used by the tests) |
 
 Differences from the 1991 device: the speaking task's priority is capped at
-20 (the original raised itself to 100); `ch_masks`/`nm_masks` are accepted
+1 (the original raised itself to 100; with AHI double-buffering a high
+priority would only starve other tasks while the next sentence is computed); `ch_masks`/`nm_masks` are accepted
 and ignored (AHI allocates channels); mouth width/height values are our own
 per-phoneme table (the original values are undocumented).
 

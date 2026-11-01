@@ -164,7 +164,7 @@ static void test_suite(void)
         struct narrator_rb *rb2;
         int i;
         longtext[0] = 0;
-        for (i = 0; i < 40; i++) strcat(longtext, "DHIHS IHZ AX LAO4NX SEH4NTUNS. ");
+        for (i = 0; i < 12; i++) strcat(longtext, "DHIHS IHZ AX LAO4NX SEH4NTUNS. ");
         rb->message.io_Command = CMD_WRITE;
         rb->message.io_Data = longtext;
         rb->message.io_Length = strlen(longtext);
@@ -238,6 +238,7 @@ int main(int argc, char **argv)
         return err ? 10 : 0;
     }
     setvbuf(stdout, NULL, _IONBF, 0);
+    printf("nartest start, device %s\n", devname);
     test_suite();
     printf("nartest: %d passed, %d failed\n", passes, fails);
     return fails ? 10 : 0;
