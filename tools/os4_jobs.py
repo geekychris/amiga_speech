@@ -48,7 +48,7 @@ def main():
              + capture("RAM:speech/say68b.raw", P + '/Say68k -f -s200 "The old sixty eight thousand Say talks to the new device."')
              + ["list RAM:speech/say68#?.raw"],
         "speak": ["delete RAM:speech/say3.raw QUIET", "setenv Narrator/Capture RAM:speech/say3.raw",
-                  "copy " + P + "/SPEAK.ml RAM:speech/SPEAK",
+                  "copy " + P + "/jobs/SPEAK.ml RAM:speech/SPEAK",
                   "mount SPEAK: FROM RAM:speech/SPEAK",
                   'echo "Hello from the speak handler. Is it working?" >SPEAK:opt/s170',
                   "wait 3", "setenv Narrator/Capture RAM:speech/cap.raw",
@@ -63,8 +63,10 @@ def main():
     jobs["regress"] = reg
     for name, lines in jobs.items():
         open(os.path.join(d, name + ".job"), "w", encoding="latin-1").write(job(name, lines))
+    # "Mount X: FROM file" wants the device name and a '#' terminator
+    # (the DOSDrivers form without them makes Mount hang)
     open(os.path.join(d, "SPEAK.ml"), "w").write(
-        "Handler = %s/speak-handler\nStackSize = 65536\nPriority = 5\nGlobVec = -1\n" % P)
+        "SPEAK:\n  Handler = %s/speak-handler\n  StackSize = 65536\n  Priority = 5\n  GlobVec = -1\n#\n" % P)
     print("wrote", sorted(os.listdir(d)))
 
 

@@ -313,7 +313,11 @@ own API, not narrator-compatible).
 1. **Default voice.** Natural sounds best; Classic is closer in character
    to what 1985 software expects (and is small). Proposal: natural by
    default, classic via prefs or unit 1.
-2. **Female natural voice.** kal16 is male. Options: a second diphone
+2. **Female natural voice.** kal16 is male. Measured: Flite's CMU slt
+   clustergen voice (BSD-style, 1.76 MB) is very intelligible (4.4% WER
+   stock vs 8.2% for stock kal16) but runs at RTF 2.7 on the QEMU
+   sam460ex (kal16: 0.10), so it is not usable there; the female voice is
+   the classic voice's FEMALE setting for now. Options: a second diphone
    database (Flite's diphone voices are all male; a free female diphone set
    would have to be found or recorded), or pitch-plus-formant warping of
    kal16 (resample the LPC spectrum), which degrades quality.
@@ -355,10 +359,11 @@ own API, not narrator-compatible).
 3. **translator.library** (in progress, `os4/translator/`): main interface
    `ITranslator->Translate()`, 68k `Translate` at LVO -30, dictionary
    loaded on first use, `NewStackRun` 64 KB stack, serialised.
-4. **Say** (`os4/say/`) and the **SPEAK:** handler (`os4/speak/`): written,
-   on-target tests pending.
-5. **68k compatibility test**: the original 68k `Say` from AmiKit against
-   our device/library (`tools/os4_test.py say68k`).
+4. **Say** (`os4/say/`) and the **SPEAK:** handler (`os4/speak/`): work on
+   the guest.
+5. **68k compatibility**: the original 68k `Say` 37.4 from AmiKit, under
+   emulation, drives our PPC library and device (`os4_test.py say68k`).
+   On-target results are in `os4/README.md`.
 6. **On-target tests** (`tools/os4_test.py`): under amiga_mcp's emulator
    lock and banner, everything from `RAM:speech`, capture mode, results
    compared with the host build.
