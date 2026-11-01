@@ -5,3 +5,4 @@ build/
 tools/narcap68k/narcap
 build-ppc/
 data/*.voice
+os4/build/

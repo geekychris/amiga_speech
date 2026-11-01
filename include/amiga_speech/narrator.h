@@ -19,6 +19,8 @@ extern "C" {
 #endif
 
 /* ---- Constants from the V37 narrator.device interface ------------------ */
+/* (skipped when the SDK's <devices/narrator.h> is already included) */
+#ifndef DEVICES_NARRATOR_H
 
 #define NDB_NEWIORB  0
 #define NDB_WORDSYNC 1
@@ -72,6 +74,8 @@ extern "C" {
 #define MAXVOL      64
 #define MINCENT     0
 #define MAXCENT     100
+
+#endif /* DEVICES_NARRATOR_H */
 
 /* ---- Extensions (not in the classic device) ---------------------------- */
 

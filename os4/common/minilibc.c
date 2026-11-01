@@ -267,3 +267,8 @@ int sprintf(char *buf, const char *f, ...)
     va_end(ap);
     return r;
 }
+
+int abs(int x) { return x < 0 ? -x : x; }
+long labs(long x) { return x < 0 ? -x : x; }
+double fabs(double x) { return x < 0 ? -x : x; }
+float fabsf(float x) { return x < 0 ? -x : x; }

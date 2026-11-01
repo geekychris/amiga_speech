@@ -34,3 +34,14 @@ void abort(void)
     }
     for (;;) ;
 }
+
+/* cst_sprintf lives in Flite's cst_file_stdio.c, which we do not build */
+int cst_sprintf(char *s, const char *fmt, ...)
+{
+    va_list ap;
+    int r;
+    va_start(ap, fmt);
+    r = vsnprintf(s, 4096, fmt, ap);
+    va_end(ap);
+    return r;
+}
