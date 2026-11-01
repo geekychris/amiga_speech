@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Chris Collins <chris@hitorro.com>
 
 #include "klatt.h"
-#include <math.h>
+#include "spmath.h"
 #include <string.h>
 
 #define PI_F 3.14159265f
@@ -22,9 +22,9 @@ static float knoise(klatt *k)
 /* two-pole resonator, unity gain at DC */
 static void res_set(kl_res *r, float f, float bw, float sr)
 {
-    float rr = expf(-PI_F * bw / sr);
+    float rr = sp_expf(-PI_F * bw / sr);
     r->c = -rr * rr;
-    r->b = 2.0f * rr * cosf(2.0f * PI_F * f / sr);
+    r->b = 2.0f * rr * sp_cosf(2.0f * PI_F * f / sr);
     r->a = 1.0f - r->b - r->c;
 }
 
@@ -32,13 +32,13 @@ static void res_set(kl_res *r, float f, float bw, float sr)
 static void res_set_peak(kl_res *r, float f, float bw, float sr)
 {
     float th = 2.0f * PI_F * f / sr, re, im;
-    float rr = expf(-PI_F * bw / sr);
+    float rr = sp_expf(-PI_F * bw / sr);
     r->c = -rr * rr;
-    r->b = 2.0f * rr * cosf(th);
+    r->b = 2.0f * rr * sp_cosf(th);
     /* |1 - b e^-jw - c e^-2jw| at w = th */
-    re = 1.0f - r->b * cosf(th) - r->c * cosf(2.0f * th);
-    im = r->b * sinf(th) + r->c * sinf(2.0f * th);
-    r->a = sqrtf(re * re + im * im);
+    re = 1.0f - r->b * sp_cosf(th) - r->c * sp_cosf(2.0f * th);
+    im = r->b * sp_sinf(th) + r->c * sp_sinf(2.0f * th);
+    r->a = sp_sqrtf(re * re + im * im);
 }
 
 static inline float res_run(kl_res *r, float x)

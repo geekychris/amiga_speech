@@ -18,6 +18,12 @@
 #include <string.h>
 
 #include "cst_hrg.h"
+
+/* Flite's cst_val layout depends on WORDS_BIGENDIAN (configure sets it);
+   without it, lists are corrupted on big-endian CPUs (found on PPC). */
+#if defined(__BIG_ENDIAN__) && !defined(WORDS_BIGENDIAN)
+#error "define WORDS_BIGENDIAN when building for a big-endian CPU"
+#endif
 #include "cst_wave.h"
 #include "cst_units.h"
 #include "cst_sts.h"
@@ -50,6 +56,16 @@ static int find_diphone(const cst_diphone_db *db, const char *key)
         if (c > 0) hi = mid; else lo = mid + 1;
     }
     return -1;
+}
+
+/* "a-b" or "a_-_b" (names cut to 10 chars, as Flite does) */
+static void dname(char *out, const char *a, const char *sep, const char *b)
+{
+    int n = 0, i;
+    for (i = 0; a[i] && i < 10; i++) out[n++] = a[i];
+    for (i = 0; sep[i]; i++) out[n++] = sep[i];
+    for (i = 0; b[i] && i < 10; i++) out[n++] = b[i];
+    out[n] = 0;
 }
 
 typedef struct {
@@ -85,10 +101,11 @@ int voice_natural_render(const sp_utt *u, const nar_params *p,
     cst_wave *wav;
     int i, n = 0, word = 0, rc = 0;
     float t = 0.0f;
-    int sr = db->sts->sample_rate;
+    int sr;
     float vol = (float)p->volume / 64.0f;
 
     if (!db) return voice_classic_render(u, p, sink, user);
+    sr = db->sts->sample_rate;
     w = (natural_work *)malloc(sizeof *w);
     if (!w) return ND_NoMem;
 
@@ -143,11 +160,11 @@ int voice_natural_render(const sp_utt *u, const nar_params *p,
             cst_item *un;
             s1 = item_next(s0);
             if (w->ph[k].cons && w->ph[k + 1].cons && w->ph[k].word == w->ph[k + 1].word) {
-                cst_sprintf(name, "%.10s_-_%.10s", item_name(s0), item_name(s1));
+                dname(name, item_name(s0), "_-_", item_name(s1));
                 e = find_diphone(db, name);
             }
             if (e < 0) {
-                cst_sprintf(name, "%.10s-%.10s", item_name(s0), item_name(s1));
+                dname(name, item_name(s0), "-", item_name(s1));
                 e = find_diphone(db, name);
             }
             if (e < 0) e = find_diphone(db, "pau-pau");

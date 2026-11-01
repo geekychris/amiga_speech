@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Chris Collins <chris@hitorro.com>
 
 #include "resample.h"
-#include <math.h>
+#include "spmath.h"
 #include <string.h>
 
 #define PI_D 3.14159265358979323846
@@ -40,9 +40,9 @@ static float kernel(float x, float fc)
     /* sinc low-pass with a Blackman window over |x| < RS_TAPS */
     float a = (float)PI_D * x * fc, s, wv;
     if (x > -1e-6f && x < 1e-6f) s = fc;
-    else s = sinf(a) / ((float)PI_D * x);
-    wv = 0.42f + 0.5f * cosf((float)PI_D * x / RS_TAPS)
-         + 0.08f * cosf(2.0f * (float)PI_D * x / RS_TAPS);
+    else s = sp_sinf(a) / ((float)PI_D * x);
+    wv = 0.42f + 0.5f * sp_cosf((float)PI_D * x / RS_TAPS)
+         + 0.08f * sp_cosf(2.0f * (float)PI_D * x / RS_TAPS);
     return s * wv;
 }
 
@@ -64,7 +64,7 @@ static int produce(resampler *r)
         }
         if (acc > 32767.0f) acc = 32767.0f;
         if (acc < -32768.0f) acc = -32768.0f;
-        out[n++] = (int16_t)lrintf(acc);
+        out[n++] = (int16_t)sp_lround(acc);
         if (n == 128) {
             if (r->sink(r->user, out, (size_t)n)) return r->aborted = 1;
             n = 0;

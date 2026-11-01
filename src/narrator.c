@@ -74,17 +74,51 @@ typedef struct {
     int active;
     nar_sink_fn sink;
     void *user;
+    uint32_t delivered;       /* samples handed to the caller's sink */
 } freq_shift;
+
+static int count_sink(void *user, const int16_t *s, size_t n)
+{
+    freq_shift *fs = (freq_shift *)user;
+    fs->delivered += (uint32_t)n;
+    return fs->sink(fs->user, s, n);
+}
 
 static int shift_sink(void *user, const int16_t *s, size_t n)
 {
     freq_shift *fs = (freq_shift *)user;
-    if (!fs->active) return fs->sink(fs->user, s, n);
+    if (!fs->active) return count_sink(fs, s, n);
     return rs_push(&fs->rs, s, n);
+}
+
+const char *nar_phoneme_name(int ph)
+{
+    return (ph > 0 && ph < PH_COUNT) ? ph_table[ph].name : "";
+}
+
+static void send_events(const sp_utt *u, const nar_params *p, uint32_t base,
+                        nar_event_fn ev, void *ev_user)
+{
+    int i;
+    double k = (double)NAR_OUTPUT_RATE / 1000.0 * (double)DEFFREQ / (double)p->sampfreq;
+    for (i = 0; i < u->nseg; i++) {
+        const sp_seg *g = &u->seg[i];
+        int fl = 0;
+        if (g->flags & SF_WSTART) fl |= NAR_EV_WORD;
+        if (ph_is_vowel(g->ph)) fl |= NAR_EV_SYL;
+        ev(ev_user, base + (uint32_t)((double)g->t0 * k), g->ph, fl);
+    }
 }
 
 int nar_speak(const nar_params *p, const char *ph, size_t len,
               nar_sink_fn sink, void *user, size_t *err_pos)
+{
+    return nar_speak_ex(p, ph, len, sink, user, NULL, NULL, err_pos);
+}
+
+int nar_speak_ex(const nar_params *p, const char *ph, size_t len,
+                 nar_sink_fn sink, void *user, nar_event_fn ev, void *ev_user,
+                 size_t *err_pos)
 {
     nar_params eff;
     sp_utt *u;
@@ -116,14 +150,16 @@ int nar_speak(const nar_params *p, const char *ph, size_t len,
     if (!u || !fs) { free(u); free(fs); return ND_NoMem; }
     fs->sink = sink;
     fs->user = user;
+    fs->delivered = 0;
     fs->active = (eff.sampfreq != DEFFREQ);
     if (fs->active)
         rs_init(&fs->rs, (double)NAR_OUTPUT_RATE * (double)eff.sampfreq / DEFFREQ,
-                (double)NAR_OUTPUT_RATE, sink, user);
+                (double)NAR_OUTPUT_RATE, count_sink, fs);
 
     while (rc == 0 && (r = sp_parse_sentence(ph, len, &pos, u, err_pos)) > 0) {
         sp_allophones(u);
         sp_prosody(u, &eff);
+        if (ev) send_events(u, &eff, fs->delivered, ev, ev_user);
         if (eff.voice == NAR_VOICE_CLASSIC)
             rc = voice_classic_render(u, &eff, shift_sink, fs);
         else

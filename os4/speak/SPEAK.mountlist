@@ -1,0 +1,5 @@
+/* SPEAK: device, for DEVS:DOSDrivers/SPEAK (amiga_speech) */
+Handler   = L:speak-handler
+StackSize = 65536
+Priority  = 5
+GlobVec   = -1

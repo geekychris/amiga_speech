@@ -62,6 +62,37 @@ const cst_diphone_db *amsv_open(uint8_t *img, size_t size)
         img[63] = 1;   /* mark swapped (name[3] is reserved) */
     }
 
+    /* residual offsets must rise and stay inside the residual data, and
+       every diphone name must be NUL-terminated inside the names area
+       (which runs from off_names to off_frames) */
+    {
+        const uint8_t *ro = img + oro;
+        uint32_t prev = 0;
+        int le_swapped = host_is_le();
+        for (i = 0; i <= nsts; i++) {
+            uint32_t r;
+            if (le_swapped)
+                r = (uint32_t)ro[i * 4] | ((uint32_t)ro[i * 4 + 1] << 8) |
+                    ((uint32_t)ro[i * 4 + 2] << 16) | ((uint32_t)ro[i * 4 + 3] << 24);
+            else
+                r = rd32(ro + i * 4);
+            if (r < prev || r > rbytes) return NULL;
+            prev = r;
+        }
+        if (on >= of || img[of - 1] != 0) {
+            /* the last name must end before the frames (padding is 0) */
+            uint32_t k = of;
+            while (k > on && img[k - 1] != 0) k--;
+            if (k == on) return NULL;
+        }
+        for (i = 0; i < nd; i++) {
+            uint32_t no = rd32(img + oi + i * 8), k;
+            if (on + no >= of) return NULL;
+            for (k = on + no; k < of && img[k]; k++) ;
+            if (k >= of) return NULL;
+        }
+    }
+
     v = (amsv_voice *)calloc(1, sizeof *v);
     if (!v) return NULL;
     v->entries = (cst_diphone_entry *)calloc(nd + 1, sizeof *v->entries);
@@ -69,7 +100,6 @@ const cst_diphone_db *amsv_open(uint8_t *img, size_t size)
     for (i = 0; i < nd; i++) {
         const uint8_t *e = img + oi + i * 8;
         uint32_t no = rd32(e);
-        if (on + no >= size) { free(v->entries); free(v); return NULL; }
         v->entries[i].name = (const char *)img + on + no;
         v->entries[i].start_pm = (unsigned short)((e[4] << 8) | e[5]);
         v->entries[i].pb_pm = e[6];

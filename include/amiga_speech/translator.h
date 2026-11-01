@@ -14,9 +14,11 @@
 extern "C" {
 #endif
 
+#ifndef LIBRARIES_TRANSLATOR_H   /* the SDK header has the same codes */
 #define TR_NotUsed  (-1)
 #define TR_NoMem    (-2)
 #define TR_MakeBad  (-4)
+#endif
 
 /* translation modes (extension) */
 #define TR_MODE_DICT    0   /* normalise + CMU dictionary + CMU LTS (default) */
