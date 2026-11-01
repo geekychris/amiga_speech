@@ -23,8 +23,22 @@
 #include "cst_sts.h"
 #include "cst_diphone.h"
 #include "cst_utt_utils.h"
+#include "voicefile.h"
 
-extern const cst_diphone_db cmu_us_kal16_db;
+static const cst_diphone_db *g_voice;
+
+int nar_set_voice_image(uint8_t *image, size_t size)
+{
+    if (g_voice) { amsv_close(g_voice); g_voice = NULL; }
+    if (!image) return 0;
+    g_voice = amsv_open(image, size);
+    return g_voice ? 0 : -1;
+}
+
+int nar_have_natural(void)
+{
+    return g_voice != NULL;
+}
 
 static int find_diphone(const cst_diphone_db *db, const char *key)
 {
@@ -63,7 +77,7 @@ typedef struct {
 int voice_natural_render(const sp_utt *u, const nar_params *p,
                          nar_sink_fn sink, void *user)
 {
-    const cst_diphone_db *db = &cmu_us_kal16_db;
+    const cst_diphone_db *db = g_voice;
     natural_work *w;
     cst_utterance *utt;
     cst_relation *segr, *unitr, *tgtr;
@@ -74,6 +88,7 @@ int voice_natural_render(const sp_utt *u, const nar_params *p,
     int sr = db->sts->sample_rate;
     float vol = (float)p->volume / 64.0f;
 
+    if (!db) return voice_classic_render(u, p, sink, user);
     w = (natural_work *)malloc(sizeof *w);
     if (!w) return ND_NoMem;
 

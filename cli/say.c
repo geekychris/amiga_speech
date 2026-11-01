@@ -88,6 +88,12 @@ int main(int argc, char **argv)
     }
     if (!quiet) printf("%s\n", ph);
 
+    if (p.voice == NAR_VOICE_NATURAL) {
+        long vsz = 0;
+        unsigned char *vimg = load_data_file(argv[0], "kal16.voice", &vsz);
+        if (!vimg || nar_set_voice_image(vimg, (size_t)vsz) != 0)
+            fprintf(stderr, "say: no natural voice data (kal16.voice), using the classic voice\n");
+    }
     c0 = clock();
     r = nar_speak(&p, ph, strlen(ph), pcm_sink, &b, &err);
     c1 = clock();

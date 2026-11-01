@@ -178,6 +178,14 @@ static void test_params(void)
     p.flags = 0; p.centphon = "XX"; CHECK(nar_params_check(&p) == 0, "old IORB ignores V37 fields");
 }
 
+static void test_voicefile(void)
+{
+    static uint8_t junk[128];
+    memcpy(junk, "AMSV", 4);
+    CHECK(nar_set_voice_image(junk, sizeof junk) == -1, "malformed voice image rejected");
+    CHECK(!nar_have_natural(), "no natural voice after a bad image");
+}
+
 static void test_phonemes(void)
 {
     size_t e = 0;
@@ -296,6 +304,14 @@ int main(int argc, char **argv)
         printf("cannot load data/english.dict (run make)\n");
         return 1;
     }
+    {
+        long vsz = 0;
+        unsigned char *vimg = load_data_file(argv[0], "kal16.voice", &vsz);
+        if (!vimg || nar_set_voice_image(vimg, (size_t)vsz) != 0) {
+            printf("cannot load data/kal16.voice (run make)\n");
+            return 1;
+        }
+    }
     test_numbers();
     test_normalize();
     test_lexicon();
@@ -305,6 +321,7 @@ int main(int argc, char **argv)
     test_phonemes();
     test_audio(NAR_VOICE_CLASSIC);
     test_audio(NAR_VOICE_NATURAL);
+    test_voicefile();
     printf("%d/%d checks passed\n", checks - fails, checks);
     (void)argc;
     return fails ? 1 : 0;

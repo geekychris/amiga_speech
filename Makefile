@@ -10,7 +10,7 @@ FLITE_CFLAGS = -O2 -g -w -Ithird_party/flite/include -Ithird_party/flite/lang/cm
 B = build
 
 CORE_SRCS = src/phoneme.c src/parse.c src/prosody.c src/klatt.c \
-            src/voice_classic.c src/voice_natural.c src/resample.c src/narrator.c
+            src/voice_classic.c src/voice_natural.c src/voicefile.c src/resample.c src/narrator.c
 TR_SRCS   = src/translator.c src/normalize.c src/lexicon.c src/lts.c src/nrl.c
 FLITE_SRCS = $(wildcard third_party/flite/src/*.c)
 KAL_SRCS   = $(wildcard third_party/flite/lang/cmu_us_kal16/*.c)
@@ -21,11 +21,11 @@ TR_OBJS    = $(TR_SRCS:%.c=$(B)/%.o) $(NRL_SRCS:%.c=$(B)/%.o)
 FLITE_OBJS = $(FLITE_SRCS:%.c=$(B)/%.o)
 KAL_OBJS   = $(KAL_SRCS:%.c=$(B)/%.o)
 
-LIBS = $(B)/libnarrator.a $(B)/libtranslator.a $(B)/libflitesub.a $(B)/libkal16.a
+LIBS = $(B)/libnarrator.a $(B)/libtranslator.a $(B)/libflitesub.a
 
 TESTS = $(B)/test_unit
 
-all: $(B)/say $(B)/translate data/english.dict
+all: $(B)/say $(B)/translate data/english.dict data/kal16.voice
 
 $(B)/third_party/flite/%.o: third_party/flite/%.c
 	@mkdir -p $(dir $@)
@@ -54,6 +54,12 @@ $(B)/translate: cli/translate.c $(B)/libtranslator.a $(B)/libflitesub.a
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(B)/libtranslator.a $(B)/libflitesub.a $(LDLIBS) -o $@
 $(B)/mkdict: tools/mkdict.c $(B)/libtranslator.a $(B)/libflitesub.a
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(B)/libtranslator.a $(B)/libflitesub.a $(LDLIBS) -o $@
+
+$(B)/mkvoice: tools/mkvoice.c $(B)/libkal16.a
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< $(B)/libkal16.a -o $@
+
+data/kal16.voice: $(B)/mkvoice
+	$(B)/mkvoice $@
 
 data/english.dict: $(B)/mkdict third_party/cmudict/cmudict.dict
 	$(B)/mkdict third_party/cmudict/cmudict.dict $@
