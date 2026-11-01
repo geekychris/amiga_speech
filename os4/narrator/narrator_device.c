@@ -152,41 +152,57 @@ static void getenv_str(const char *name, char *buf, int size, const char *def)
     }
 }
 
-static void load_voice(void)
+/* try one directory; returns 1 if a valid voice was loaded */
+static int load_voice_from(const char *dir)
 {
-    char dir[200], path[260];
+    char path[260];
     BPTR fh;
-    int i, j;
-    if (g_voice_tried) return;
-    g_voice_tried = 1;
-    getenv_str("Narrator/DataDir", dir, sizeof dir, "DEVS:narrator");
+    int i, ok = 0;
+    int64 sz;
     for (i = 0; dir[i] && i < 200; i++) path[i] = dir[i];
     path[i] = 0;
-    if (!IDOS->AddPart(path, "kal16.voice", sizeof path)) return;
+    if (!IDOS->AddPart(path, "kal16.voice", sizeof path)) return 0;
     fh = IDOS->Open(path, MODE_OLDFILE);
-    if (!fh) {
-        IExec->DebugPrintF("[narrator] no %s, using the classic voice\n", path);
-        return;
-    }
-    {
-        int64 sz = IDOS->GetFileSize(fh);
-        if (sz > 64 && sz < 64 * 1024 * 1024) {
-            g_voice_img = IExec->AllocVecTags((uint32)sz, AVT_Type, MEMF_SHARED, TAG_END);
-            if (g_voice_img && IDOS->Read(fh, g_voice_img, (int32)sz) == (int32)sz) {
-                g_voice_size = (uint32)sz;
-                if (nar_set_voice_image(g_voice_img, g_voice_size) != 0) {
-                    IExec->DebugPrintF("[narrator] %s is not a voice file\n", path);
-                    IExec->FreeVec(g_voice_img);
-                    g_voice_img = NULL;
-                }
-            } else if (g_voice_img) {
-                IExec->FreeVec(g_voice_img);
-                g_voice_img = NULL;
-            }
+    if (!fh) return 0;
+    sz = IDOS->GetFileSize(fh);
+    if (sz > 64 && sz < 64 * 1024 * 1024) {
+        g_voice_img = IExec->AllocVecTags((uint32)sz, AVT_Type, MEMF_SHARED, TAG_END);
+        if (g_voice_img && IDOS->Read(fh, g_voice_img, (int32)sz) == (int32)sz &&
+            nar_set_voice_image(g_voice_img, (size_t)sz) == 0) {
+            g_voice_size = (uint32)sz;
+            ok = 1;
+        } else {
+            IExec->DebugPrintF("[narrator] %s is not a usable voice file\n", path);
+            if (g_voice_img) IExec->FreeVec(g_voice_img);
+            g_voice_img = NULL;
         }
     }
     IDOS->Close(fh);
-    (void)j;
+    return ok;
+}
+
+/* kal16.voice: ENV:Narrator/DataDir, then SPEECH:, DEVS:narrator, DEVS: */
+static void load_voice(void)
+{
+    static const char *const dirs[] = { "SPEECH:", "DEVS:narrator", "DEVS:", NULL };
+    char dir[200];
+    int i;
+    struct Process *me = (struct Process *)IExec->FindTask(NULL);
+    APTR oldwin;
+    if (g_voice_tried) return;
+    g_voice_tried = 1;
+    /* no "please insert volume SPEECH:" requesters */
+    oldwin = me->pr_WindowPtr;
+    me->pr_WindowPtr = (APTR)-1;
+    if (IDOS->GetVar("Narrator/DataDir", dir, sizeof dir, 0) > 0 && load_voice_from(dir)) {
+        me->pr_WindowPtr = oldwin;
+        return;
+    }
+    for (i = 0; dirs[i]; i++)
+        if (load_voice_from(dirs[i])) break;
+    me->pr_WindowPtr = oldwin;
+    if (!g_voice_img)
+        IExec->DebugPrintF("[narrator] no kal16.voice found, using the classic voice\n");
 }
 
 /* ------------------------------------------------------------------ */
@@ -332,6 +348,8 @@ static void ahi_close(speaker *s)
 static void play_submit(speaker *s)
 {
     struct AHIRequest *io = s->io[s->cur];
+    TRACE("submit %ld samples at %lu, previous %s\n", (long)s->fill, (unsigned long)s->submitted,
+          !s->link ? "none" : IExec->CheckIO((struct IORequest *)s->link) ? "FINISHED (underrun)" : "playing");
     io->ahir_Std.io_Command = CMD_WRITE;
     io->ahir_Std.io_Data = s->buf[s->cur];
     io->ahir_Std.io_Length = (uint32)s->fill * 2;

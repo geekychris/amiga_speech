@@ -8,6 +8,7 @@ OD    = ppc-amigaos-objdump
 
 TOP   = ..
 B     = build
+.DEFAULT_GOAL := all
 COMMON = -mcrt=newlib -O2 -mcpu=powerpc -std=gnu99 -D__USE_INLINE__ -D__USE_OLD_TIMEVAL__
 # freestanding parts (device / library): no C runtime
 FCFLAGS = $(COMMON) $(XCFLAGS) -fno-builtin -ffunction-sections -fdata-sections -Wall -Wno-unused-parameter \

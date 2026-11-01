@@ -10,6 +10,24 @@ Native PPC replacements for the classic speech system:
 | `english.dict` | `DEVS:narrator/` | pronunciation dictionary (`data/english.dict`) |
 | `Say` | `C:` or `SYS:Utilities/` | Say command |
 | `speak-handler` | `L:` | SPEAK: handler, with `speak/SPEAK.mountlist` as `DEVS:DOSDrivers/SPEAK` |
+| `Speech-Setup` | anywhere | use everything from one drawer until reboot (no installation) |
+
+### Trying it without installing anything
+
+Copy the files into one drawer (e.g. `DH1:speech`) and, in a Shell:
+
+```
+Execute DH1:speech/Speech-Setup
+Say Hello, I am your Amiga.
+```
+
+`Speech-Setup` (optionally `Execute DH1:speech/Speech-Setup DIR=<drawer>`)
+only makes assigns (`SPEECH:`, and adds the drawer to `LIBS:` and `DEVS:`),
+adds it to the Shell's path and sets `ENV:Narrator/DataDir`; nothing is
+written to disk and everything is gone after a reboot. The device and
+library look for `kal16.voice` / `english.dict` in `ENV:Narrator/DataDir`,
+`SPEECH:`, `DEVS:narrator`, `DEVS:` (and `LIBS:` for the dictionary); if the
+voice file is not found the natural voice falls back to the classic one.
 
 Both the device and the library carry a 68k jump table (EmuTrap stubs), so
 68k programs running under emulation (the original `Say`, games, BASIC) use
