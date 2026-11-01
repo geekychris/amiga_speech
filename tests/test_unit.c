@@ -211,6 +211,39 @@ static void test_events(void)
 static pcmbuf render(const nar_params *p, const char *ph);
 static uint32_t hash(const pcmbuf *b);
 
+/* load a fresh copy of data/kal16.voice into a malloc'd buffer */
+static uint8_t *voice_copy(const char *argv0, long *sz)
+{
+    return load_data_file(argv0, "kal16.voice", sz);
+}
+
+static void test_voicefile_corrupt(const char *argv0, unsigned char *good, long goodsz)
+{
+    long sz;
+    uint8_t *img;
+    uint32_t oro, nsts, off;
+    /* residual offset pointing past the residual data */
+    img = voice_copy(argv0, &sz);
+    nsts = ((uint32_t)img[16] << 24) | ((uint32_t)img[17] << 16) | ((uint32_t)img[18] << 8) | img[19];
+    oro = ((uint32_t)img[44] << 24) | ((uint32_t)img[45] << 16) | ((uint32_t)img[46] << 8) | img[47];
+    off = oro + nsts * 4;                 /* the final offset */
+    img[off] = 0x7f; img[off + 1] = 0xff;
+    CHECK(nar_set_voice_image(img, (size_t)sz) == -1, "residual offset past the data rejected");
+    free(img);
+    /* names area without a terminating NUL */
+    img = voice_copy(argv0, &sz);
+    {
+        uint32_t on = ((uint32_t)img[36] << 24) | ((uint32_t)img[37] << 16) | ((uint32_t)img[38] << 8) | img[39];
+        uint32_t of = ((uint32_t)img[40] << 24) | ((uint32_t)img[41] << 16) | ((uint32_t)img[42] << 8) | img[43];
+        uint32_t k;
+        for (k = on; k < of; k++) if (img[k] == 0) img[k] = 'a';
+    }
+    CHECK(nar_set_voice_image(img, (size_t)sz) == -1, "unterminated diphone names rejected");
+    free(img);
+    /* and the good image still loads */
+    CHECK(nar_set_voice_image(good, (size_t)goodsz) == 0, "valid voice image accepted");
+}
+
 static void test_voicefile(void)
 {
     static uint8_t junk[128];
@@ -350,13 +383,11 @@ int main(int argc, char **argv)
         printf("cannot load data/english.dict (run make)\n");
         return 1;
     }
-    {
-        long vsz = 0;
-        unsigned char *vimg = load_data_file(argv[0], "kal16.voice", &vsz);
-        if (!vimg || nar_set_voice_image(vimg, (size_t)vsz) != 0) {
-            printf("cannot load data/kal16.voice (run make)\n");
-            return 1;
-        }
+    long vsz = 0;
+    unsigned char *vimg = load_data_file(argv[0], "kal16.voice", &vsz);
+    if (!vimg || nar_set_voice_image(vimg, (size_t)vsz) != 0) {
+        printf("cannot load data/kal16.voice (run make)\n");
+        return 1;
     }
     test_numbers();
     test_normalize();
@@ -369,6 +400,7 @@ int main(int argc, char **argv)
     test_audio(NAR_VOICE_NATURAL);
     test_voicefile();
     test_events();
+    test_voicefile_corrupt(argv[0], vimg, vsz);
     printf("%d/%d checks passed\n", checks - fails, checks);
     (void)argc;
     return fails ? 1 : 0;
