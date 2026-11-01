@@ -20,6 +20,13 @@ FLITE = cst_alloc cst_endian cst_features cst_ffeature cst_item cst_lpcres cst_r
         cst_sigpr cst_string cst_sts cst_track cst_units cst_utt_utils cst_utterance \
         cst_val cst_val_const cst_val_user cst_wave cst_wave_utils g721 g72x amiga_speech_stubs
 
+# rebuild everything when the compiler flags change
+FLAGS_STAMP = $(B)/.flags-$(shell echo '$(FCFLAGS)' | md5sum | cut -c1-8)
+$(FLAGS_STAMP):
+	@mkdir -p $(B)
+	@rm -f $(B)/*.o $(B)/.flags-*
+	@touch $@
+
 CORE_O  = $(CORE:%=$(B)/core_%.o)
 FLITE_O = $(FLITE:%=$(B)/fl_%.o)
 COMMON_O = $(B)/minilibc.o $(B)/ml_printf.o $(B)/flite_os4.o
@@ -28,19 +35,19 @@ DEVFILE ?= narrator.device
 
 all: $(B)/$(DEVFILE) $(B)/translator.library $(B)/Say $(B)/speak-handler $(B)/nartest $(B)/trtest $(B)/taskinfo check
 
-$(B)/core_%.o: $(TOP)/src/%.c
+$(B)/core_%.o: $(TOP)/src/%.c $(FLAGS_STAMP)
 	@mkdir -p $(B)
 	$(CC) $(FCFLAGS) -c $< -o $@
-$(B)/fl_cmu_%.o: $(TOP)/third_party/flite/src/cmu_%.c
+$(B)/fl_cmu_%.o: $(TOP)/third_party/flite/src/cmu_%.c $(FLAGS_STAMP)
 	@mkdir -p $(B)
 	$(CC) $(FCFLAGS) -w -c $< -o $@
-$(B)/fl_%.o: $(TOP)/third_party/flite/src/%.c
+$(B)/fl_%.o: $(TOP)/third_party/flite/src/%.c $(FLAGS_STAMP)
 	@mkdir -p $(B)
 	$(CC) $(FCFLAGS) -w -c $< -o $@
-$(B)/%.o: common/%.c
+$(B)/%.o: common/%.c $(FLAGS_STAMP)
 	@mkdir -p $(B)
 	$(CC) $(FCFLAGS) -c $< -o $@
-$(B)/narrator_device.o: narrator/narrator_device.c
+$(B)/narrator_device.o: narrator/narrator_device.c $(FLAGS_STAMP)
 	@mkdir -p $(B)
 	$(CC) $(FCFLAGS) -DDEVNAME='"$(DEVFILE)"' -c $< -o $@
 
@@ -54,11 +61,11 @@ TRFL = cst_lts cst_endian cmu_lts_model cmu_lts_rules cst_alloc cst_features cst
        cst_val_const cst_val_user amiga_speech_stubs
 TR_O = $(TR:%=$(B)/core_%.o) $(TRFL:%=$(B)/fl_%.o) $(B)/nrl_english.o $(B)/trstubs.o
 
-$(B)/nrl_english.o: $(TOP)/third_party/nrl/english.c
+$(B)/nrl_english.o: $(TOP)/third_party/nrl/english.c $(FLAGS_STAMP)
 	$(CC) $(FCFLAGS) -w -DRules=nrl_rules -c $< -o $@
-$(B)/trstubs.o: translator/trstubs.c
+$(B)/trstubs.o: translator/trstubs.c $(FLAGS_STAMP)
 	$(CC) $(FCFLAGS) -c $< -o $@
-$(B)/translator_library.o: translator/translator_library.c
+$(B)/translator_library.o: translator/translator_library.c $(FLAGS_STAMP)
 	$(CC) $(FCFLAGS) -Iinclude -c $< -o $@
 $(B)/translator.library.debug: $(B)/translator_library.o $(TR_O) $(COMMON_O)
 	$(CC) $(FLDFLAGS) -Wl,-u,tr_romtag -Wl,-u,verstag_translator -o $@ $^ -lgcc
@@ -67,7 +74,7 @@ $(B)/translator.library: $(B)/translator.library.debug
 $(B)/trtest: tests/trtest.c
 	$(CC) $(COMMON) -Wall -Iinclude -o $@ $< -lauto
 
-$(B)/speak_handler.o: speak/speak_handler.c
+$(B)/speak_handler.o: speak/speak_handler.c $(FLAGS_STAMP)
 	$(CC) $(FCFLAGS) -Iinclude -c $< -o $@
 $(B)/speak-handler: $(B)/speak_handler.o $(B)/minilibc.o $(B)/ml_printf.o
 	$(CC) $(FLDFLAGS) -o $@ $^ -lgcc
