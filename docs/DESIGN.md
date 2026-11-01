@@ -345,20 +345,23 @@ own API, not narrator-compatible).
    `nar_set_voice_image()`; on PPC it is used in place, on little-endian
    hosts it is byte-swapped once. The device will load it with
    `AllocVecTags(MEMF_SHARED)` from `DEVS:narrator/kal16.voice`.
-2. **narrator.device skeleton** (PPC, unit 0): device task, request queue,
-   `CMD_WRITE` → `nar_speak()` → AHI double-buffering, `AbortIO`,
-   `CMD_FLUSH/RESET/STOP/START`, parameter checks from `nar_params_check()`.
-   Then `CMD_READ` mouths/sync.
-3. **translator.library** (PPC) with an IDL/SFD and generated 68k EmuTrap
-   stubs; dictionary loaded once; make the Flite LTS walker reentrant
-   (allocation through a per-call pool).
-4. **68k compatibility test**: run the 68k `SYS:Utilities/Say` 37.x and
-   `tools/narcap68k` (built unchanged) on OS4 against our PPC device and
-   library; check the IORB layout and return codes.
-5. **Say** and **SPEAK:** for OS4.
-6. **On-target tests** through the devbench bridge: render the test
-   sentences on the guest, pull the WAVs back, compare hashes with the host
-   build and run the intelligibility oracle on the host.
+2. **narrator.device** (in progress, `os4/narrator/`): native PPC device,
+   device process, AHI double-buffering or a capture file
+   (`ENV:Narrator/Capture`), CMD_WRITE/READ/FLUSH/RESET/STOP/START, AbortIO,
+   mouths and word/syllable sync from core timing events
+   (`nar_speak_ex`), 68k EmuTrap jump table, units 0 (default voice) and 1
+   (classic). Freestanding build: the core now has its own math
+   (`src/spmath.c`) and `os4/common/minilibc.c` replaces libc.
+3. **translator.library** (in progress, `os4/translator/`): main interface
+   `ITranslator->Translate()`, 68k `Translate` at LVO -30, dictionary
+   loaded on first use, `NewStackRun` 64 KB stack, serialised.
+4. **Say** (`os4/say/`) and the **SPEAK:** handler (`os4/speak/`): written,
+   on-target tests pending.
+5. **68k compatibility test**: the original 68k `Say` from AmiKit against
+   our device/library (`tools/os4_test.py say68k`).
+6. **On-target tests** (`tools/os4_test.py`): under amiga_mcp's emulator
+   lock and banner, everything from `RAM:speech`, capture mode, results
+   compared with the host build.
 7. Voice work that remains: a female natural voice, F0 from parentheses
    (noun phrases), homograph handling, more classic-voice tuning (velars
    and affricates are still its weakest sounds).
