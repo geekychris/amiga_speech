@@ -178,12 +178,58 @@ static void test_params(void)
     p.flags = 0; p.centphon = "XX"; CHECK(nar_params_check(&p) == 0, "old IORB ignores V37 fields");
 }
 
+typedef struct { int n, words, syls, mono; uint32_t last; } evstat;
+
+static void count_ev(void *user, uint32_t pos, int ph, int flags)
+{
+    evstat *e = (evstat *)user;
+    if (e->n && pos < e->last) e->mono = 0;
+    e->last = pos;
+    e->n++;
+    if (flags & NAR_EV_WORD) e->words++;
+    if (flags & NAR_EV_SYL) e->syls++;
+    (void)ph;
+}
+
+static void test_events(void)
+{
+    nar_params p;
+    pcmbuf b = { 0 };
+    evstat e = { 0, 0, 0, 1, 0 };
+    size_t err;
+    const char *ph = "DHIHS IHZ AHMIY5GAH SPIY5KIHNX. /HEH4LOW.";
+    nar_params_default(&p);
+    p.voice = NAR_VOICE_CLASSIC;
+    CHECK(nar_speak_ex(&p, ph, strlen(ph), pcm_sink, &b, count_ev, &e, &err) == 0, "speak_ex");
+    CHECK(e.words == 5, "word events (%d)", e.words);
+    CHECK(e.syls == 9, "syllable events (%d)", e.syls);
+    CHECK(e.mono, "event positions increase");
+    CHECK(e.last < b.n, "events fall inside the audio (%lu < %lu)", (unsigned long)e.last, (unsigned long)b.n);
+    free(b.s);
+}
+
+static pcmbuf render(const nar_params *p, const char *ph);
+static uint32_t hash(const pcmbuf *b);
+
 static void test_voicefile(void)
 {
     static uint8_t junk[128];
     memcpy(junk, "AMSV", 4);
     CHECK(nar_set_voice_image(junk, sizeof junk) == -1, "malformed voice image rejected");
     CHECK(!nar_have_natural(), "no natural voice after a bad image");
+    {
+        /* the natural voice falls back to the classic one without data */
+        nar_params p;
+        pcmbuf a, b;
+        nar_params_default(&p);
+        p.voice = NAR_VOICE_NATURAL;
+        a = render(&p, "/HEH4LOW.");
+        p.voice = NAR_VOICE_CLASSIC;
+        b = render(&p, "/HEH4LOW.");
+        CHECK(a.n == b.n && a.n > 0 && hash(&a) == hash(&b), "natural without voice data = classic");
+        free(a.s);
+        free(b.s);
+    }
 }
 
 static void test_phonemes(void)
@@ -322,6 +368,7 @@ int main(int argc, char **argv)
     test_audio(NAR_VOICE_CLASSIC);
     test_audio(NAR_VOICE_NATURAL);
     test_voicefile();
+    test_events();
     printf("%d/%d checks passed\n", checks - fails, checks);
     (void)argc;
     return fails ? 1 : 0;

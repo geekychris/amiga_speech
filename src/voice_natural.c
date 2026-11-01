@@ -95,10 +95,11 @@ int voice_natural_render(const sp_utt *u, const nar_params *p,
     cst_wave *wav;
     int i, n = 0, word = 0, rc = 0;
     float t = 0.0f;
-    int sr = db->sts->sample_rate;
+    int sr;
     float vol = (float)p->volume / 64.0f;
 
     if (!db) return voice_classic_render(u, p, sink, user);
+    sr = db->sts->sample_rate;
     w = (natural_work *)malloc(sizeof *w);
     if (!w) return ND_NoMem;
 
